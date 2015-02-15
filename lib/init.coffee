@@ -3,11 +3,11 @@ module.exports =
     executablePath:
       type: 'string'
       default: 'rustc'
-      description: 'Path to rust compiler'
-    executablePath2:
+      description: 'Path to rust compiler (rustc)'
+    cargoPath:
       type: 'string'
       default: 'cargo'
-      description: 'Path to rust package manager'
+      description: 'Path to rust package manager (cargo)'
 
   activate: ->
     console.log 'Linter-Rust: package loaded,

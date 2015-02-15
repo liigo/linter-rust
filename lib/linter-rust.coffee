@@ -7,8 +7,9 @@ path = require 'path'
 
 
 class LinterRust extends Linter
-  @enable: false
+  @enabled: false
   @syntax: 'source.rust'
+  @rustPath: 'rustc'
   @cargoPath: 'cargo'
   @cargoManifestPath: null
   linterName: 'rust'
@@ -18,10 +19,11 @@ class LinterRust extends Linter
   constructor: (@editor) ->
     super @editor
     atom.config.observe 'linter-rust.executablePath', =>
-      @executablePath = atom.config.get 'linter-rust.executablePath'
-      exec "#{@executablePath} --version", @executionCheckHandler
-    atom.config.observe 'linter-rust.executablePath2', =>
-      @cargoPath = atom.config.get 'linter-rust.executablePath2'
+      @rustPath = atom.config.get 'linter-rust.executablePath'
+      exec "#{@rustPath} --version", @executionCheckHandler
+    atom.config.observe 'linter-rust.cargoPath', =>
+      @cargoPath = atom.config.get 'linter-rust.cargoPath'
+      exec "#{@cargoPath} --version", @executionCheckHandler
 
   executionCheckHandler: (error, stdout, stderr) =>
     versionRegEx = /(rustc|cargo) ([\d\.]+)/
@@ -29,23 +31,22 @@ class LinterRust extends Linter
       result = if error? then '#' + error.code + ': ' else ''
       result += 'stdout: ' + stdout if stdout.length > 0
       result += 'stderr: ' + stderr if stderr.length > 0
-      console.error "Linter-Rust: \"#{@executablePath}\" was invalid: \
-      \"#{result}\". Please, check executable path in the linter settings."
+      console.error "Linter-Rust: `\"#{error.cmd}\"` failed:\n\
+      \"#{result}\".\nPlease, check executable path in the linter settings."
     else
       @enabled = true
       log "Linter-Rust: found " + stdout
-      log 'Linter-Rust: initialization completed'
 
   initCmd: (editing_file) =>
     # search for Cargo.toml in container directoies
     dir = path.dirname editing_file
     @cargoManifestPath = findFile(dir, "Cargo.toml")
     if @cargoManifestPath
-      log "found Cargo.toml: #{@cargoManifestPath}"
-      @cmd = "cargo build"
+      log "Linter-Rust: found Cargo.toml: #{@cargoManifestPath}"
+      @cmd = "#{@cargoPath}"
       @cwd = path.dirname @cargoManifestPath
     else
-      @cmd = "rustc --no-trans --color never"
+      @cmd = "#{@rustPath} --no-trans --color never"#{filePath}
       @cwd = path.dirname editing_file
 
   lintFile: (filePath, callback) =>
@@ -55,21 +56,11 @@ class LinterRust extends Linter
     editing_file = @editor.getPath()
     @initCmd editing_file
     if @cargoManifestPath
-      super(editing_file, callback)
+      log "Linter-Rust: linting #{filePath} via cargo: #{editing_file}"
+      super('build', callback)
     else
+      log "Linter-Rust: linting #{filePath}"
       super(filePath, callback)
-
-  beforeSpawnProcess: (command, args, options) =>
-    # is there a Cargo.toml file?
-    if @cargoManifestPath
-      return {
-        command: @cargoPath, # we build package using cargo
-        args: args[0..-2],   # remove the last .rs file that Linter always appends
-        options: options     # keep it as is
-      }
-    else
-      # we compile .rs file using rustc
-      return { command: command, args: args, options:options }
 
   formatMessage: (match) ->
     type = if match.error then match.error else match.warning
