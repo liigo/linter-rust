@@ -1,3 +1,6 @@
+# 0.1.1
+Fixed Cargo support.
+
 # 0.1.0
 Now we support Cargo!
 
